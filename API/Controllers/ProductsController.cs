@@ -15,7 +15,7 @@ public class ProductsController(IGenericRepository<Product> repo) : BaseApiContr
 
         var pagedResult = await CreatePagedResult(repo, spec, specParams.PageIndex, specParams.PageSize);
 
-        return Ok(pagedResult);
+        return pagedResult;
     }
 
     // [HttpGet("{id:int}")]
