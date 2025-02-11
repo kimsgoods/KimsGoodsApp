@@ -18,15 +18,15 @@ public class ProductsController(IGenericRepository<Product> repo) : BaseApiContr
         return pagedResult;
     }
 
-    // [HttpGet("{id:int}")]
-    // public async Task<ActionResult<Product>> GetProductById(int id)
-    // {
-    //     var product = await repo.GetProductByIdAsync(id);
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Product>> GetProductById(int id)
+    {
+        var product = await repo.GetByIdAsync(id);
 
-    //     if (product == null) return NotFound();
+        if (product == null) return NotFound();
 
-    //     return product;
-    // }
+        return product;
+    }
 
     // [HttpPost]
     // public async Task<ActionResult<Product>> CreateProduct(Product product)
