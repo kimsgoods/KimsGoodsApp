@@ -13,7 +13,7 @@
                 </dl>
                 <dl class="flex items-center justify-between gap-4">
                     <dt class="font-medium text-gray-500">Delivery fee</dt>
-                    <dd class="font-medium text-gray-900">$10.00</dd>
+                    <dd class="font-medium text-gray-900">{{cartService.totals()?.deliveryFee | currency}}</dd>
                 </dl>
             </div>
             <dl class="flex items-center justify-between gap-4 border-t border-gray-200 pt-2">
@@ -21,10 +21,13 @@
                 <dd class="font-medium text-gray-900">{{cartService.totals()?.total | currency}}</dd>
             </dl>
         </div>
+        @if (location.path() != "/checkout") {
         <div class="flex flex-col gap-2">
             <button routerLink="/checkout" mat-flat-button>Checkout</button>
             <button routerLink="/shop" mat-button>Continue shopping</button>
         </div>
+        }
+
     </div>
 
     <div class="space-y-4 rounded-lg border border-gray-200 bg-white shadow-sm">
