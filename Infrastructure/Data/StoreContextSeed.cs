@@ -14,9 +14,22 @@ public static class StoreContextSeed
 
             var products = JsonSerializer.Deserialize<List<Product>>(productsData);
 
-            if(products == null) return;
+            if (products == null) return;
 
             context.Products.AddRange(products);
+
+            await context.SaveChangesAsync();
+        }
+
+        if (!context.DeliveryMethods.Any())
+        {
+            var dmData = await File.ReadAllTextAsync("../Infrastructure/Data/SeedData/delivery.json");
+
+            var deliveryMethods = JsonSerializer.Deserialize<List<DeliveryMethod>>(dmData);
+
+            if (deliveryMethods == null) return;
+
+            context.DeliveryMethods.AddRange(deliveryMethods);
 
             await context.SaveChangesAsync();
         }
