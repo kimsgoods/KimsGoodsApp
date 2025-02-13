@@ -21,7 +21,7 @@ public class GenericRepository<T>(StoreContext context) : IGenericRepository<T> 
         return await query.CountAsync();
     }
 
-    public bool Exist(int id)
+    public bool Exists(int id)
     {
         return context.Set<T>().Any(x => x.Id == id);
     }
@@ -60,12 +60,7 @@ public class GenericRepository<T>(StoreContext context) : IGenericRepository<T> 
     {
         context.Set<T>().Remove(entity);
     }
-
-    public async Task<bool> SaveAllAsync()
-    {
-        return await context.SaveChangesAsync() > 0;
-    }
-
+    
     public void Update(T entity)
     {
         context.Set<T>().Attach(entity);
