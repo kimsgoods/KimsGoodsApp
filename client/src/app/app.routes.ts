@@ -15,12 +15,14 @@ import { CheckoutSuccessComponent } from './features/checkout/checkout-success/c
 import { OrderComponent } from './features/orders/order.component';
 import { OrderDetailComponent } from './features/orders/order-detail/order-detail.component';
 import { orderCompleteGuard } from './core/guards/order-complete.guard';
+import { AboutComponent } from './features/about/about.component';
 
 export const routes: Routes = [
     { path: "", component: HomeComponent },
     { path: "shop", component: ShopComponent },
     { path: "shop/:id", component: ProductDetailsComponent },
     { path: "cart", component: CartComponent },
+    { path: "about", component: AboutComponent },
     { path: "checkout", component: CheckoutComponent, canActivate: [authGuard, emptyCartGuard] },
     { path: "checkout/success", component: CheckoutSuccessComponent, canActivate: [authGuard, orderCompleteGuard] },
     { path: "orders", component: OrderComponent, canActivate: [authGuard] },
