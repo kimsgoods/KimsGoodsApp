@@ -13,23 +13,17 @@ namespace Infrastructure.Services
             StripeConfiguration.ApiKey = configuration["StripeSettings:SecretKey"];
             var cart = await cartService.GetCartAsync(cartId);
             if (cart == null) return null;
-            var deliveryFee = 0m;
 
-            if (cart.DeliveryMethodId.HasValue)
+            var deliveryFee = await GetDeliveryFee(cart);
+            var subtotal = GetSubtotal(cart);
+
+            if (cart.Coupon != null)
             {
-                var deliveryMethod = await unitOfWork.Repository<DeliveryMethod>().GetByIdAsync((int)cart.DeliveryMethodId);
-                if (deliveryMethod == null) return null;
-                deliveryFee = deliveryMethod.Price;
+                subtotal = await ApplyDiscount(cart.Coupon, subtotal);
             }
-            foreach (var item in cart.Items)
-            {
-                var productItem = await unitOfWork.Repository<Product>().GetByIdAsync(item.ProductId);
-                if (productItem == null) return null;
-                if (item.Price != productItem.Price)
-                {
-                    item.Price = productItem.Price;
-                }
-            }
+
+            var totalAmount = subtotal + deliveryFee;
+            await ValidateCartItemsPrice(cart);
 
             var paymentIntentService = new PaymentIntentService();
             PaymentIntent? intent = null;
@@ -38,7 +32,7 @@ namespace Infrastructure.Services
             {
                 var options = new PaymentIntentCreateOptions
                 {
-                    Amount = (long)cart.Items.Sum(x => x.Quantity * (x.Price * 100)) + (long)deliveryFee * 100,
+                    Amount = (long)totalAmount,
                     Currency = "usd",
                     PaymentMethodTypes = ["card"]
                 };
@@ -50,7 +44,7 @@ namespace Infrastructure.Services
             {
                 var options = new PaymentIntentUpdateOptions
                 {
-                    Amount = (long)cart.Items.Sum(x => x.Quantity * (x.Price * 100)) + (long)deliveryFee * 100
+                    Amount = (long)totalAmount
                 };
                 intent = await paymentIntentService.UpdateAsync(cart.PaymentIntentId, options);
             }
@@ -58,6 +52,60 @@ namespace Infrastructure.Services
             await cartService.SetCartAsync(cart);
 
             return cart;
+        }
+
+        private static async Task<long> ApplyDiscount(AppCoupon appCoupon, long subtotal)
+        {
+            var couponService = new Stripe.CouponService();
+
+            var coupon = await couponService.GetAsync(appCoupon.CouponId);
+
+            if (coupon.AmountOff.HasValue)
+            {
+                subtotal -= (long)coupon.AmountOff * 100;
+            }
+
+            if (coupon.PercentOff.HasValue)
+            {
+                var discount = subtotal * (coupon.PercentOff.Value / 100);
+                subtotal -= (long)discount;
+            }
+
+            return subtotal;
+        }
+
+        private async Task ValidateCartItemsPrice(ShoppingCart cart)
+        {
+            foreach (var item in cart.Items) //Make sure the cart item price matches the price on the products table
+            {
+                var productItem = await unitOfWork.Repository<Product>().GetByIdAsync(item.ProductId) ?? throw new Exception("Problem with product item");
+                if (item.Price != productItem.Price)
+                {
+                    item.Price = productItem.Price;
+                }
+            }
+        }
+
+        private static long GetSubtotal(ShoppingCart cart)
+        {
+            var subtotal = cart.Items.Sum(x => x.Quantity * x.Price * 100); // multiply 100 to match Stripe long Amount
+            return (long)subtotal;
+        }
+
+        private async Task<long> GetDeliveryFee(ShoppingCart cart)
+        {
+            long deliveryFee = 0;
+            if (cart.DeliveryMethodId.HasValue)
+            {
+                var deliveryMethod = await unitOfWork.Repository<DeliveryMethod>().GetByIdAsync((int)cart.DeliveryMethodId)
+                    ?? throw new Exception("Problem with delivery method");
+                deliveryFee = (long)deliveryMethod.Price * 100; // multiply 100 to match Stripe long Amount
+            }
+            else
+            {
+                throw new Exception("Problem with delivery method");
+            }
+            return deliveryFee;
         }
     }
 }

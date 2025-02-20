@@ -33,6 +33,7 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
         return Ok(await unitOfWork.Repository<DeliveryMethod>().ListAllAsync());
     }
 
+
     [HttpPost("webhook")]
     public async Task<IActionResult> StripeWebhook()
     {
@@ -51,10 +52,10 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
             {
                 await HandlePaymentIntentSucceeded(intent);
             }
-            // else
-            // {
-            //     await HandlePaymentIntentFailed(intent);
-            // }
+            else
+            {
+                await HandlePaymentIntentFailed(intent);
+            }
 
             return Ok();
         }
@@ -83,25 +84,23 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
         }
     }
 
-    // private async Task HandlePaymentIntentFailed(PaymentIntent intent)
-    // {
-    //     var order = await context.Orders
-    //         .Include(x => x.OrderItems)
-    //         .FirstOrDefaultAsync(x => x.PaymentIntentId == intent.Id)
-    //         ?? throw new Exception("Order not found");
+    private async Task HandlePaymentIntentFailed(PaymentIntent intent)
+    {
+        var spec = new OrderSpecification(intent.Id, true);
+        var order = await unitOfWork.Repository<Core.Entities.OrderAggregates.Order>().GetEntityWithSpec(spec)
+                ?? throw new Exception("Order not found");
 
-    //     foreach (var item in order.OrderItems)
-    //     {
-    //         var productItem = await context.Products
-    //         .FindAsync(item.ItemOrdered.ProductId)
-    //         ?? throw new Exception("Product not found");
+        foreach (var item in order.OrderItems)
+        {
+            var productItem = await unitOfWork.Repository<Core.Entities.Product>().GetByIdAsync(item.ItemOrdered.ProductId)
+            ?? throw new Exception("Product not found");
 
-    //         productItem.QuantityInStock += item.Quantity;
-    //     }
-    //     order.OrderStatus = OrderStatus.PaymentFailed;
+            productItem.QuantityInStock += item.Quantity;
+        }
+        order.Status = OrderStatus.PaymentFailed;
 
-    //     await context.SaveChangesAsync();
-    // }
+        await unitOfWork.Complete();
+    }
     private async Task HandlePaymentIntentSucceeded(PaymentIntent intent)
     {
         if (intent.Status == "succeeded")
@@ -109,9 +108,10 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
             var spec = new OrderSpecification(intent.Id, true);
 
             var order = await unitOfWork.Repository<Core.Entities.OrderAggregates.Order>().GetEntityWithSpec(spec)
-                ?? throw new Exception("Order not found");
+            ?? throw new Exception("Order not found");
 
-            if ((long)order.GetTotal() * 100 != intent.Amount)
+            var orderTotalInCents = (long)Math.Round(order.GetTotal() * 100, MidpointRounding.AwayFromZero);
+            if (orderTotalInCents != intent.Amount)
             {
                 order.Status = OrderStatus.PaymentMismatch;
             }
@@ -130,9 +130,4 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
             }
         }
     }
-
-
-
-
-
 }
