@@ -14,5 +14,6 @@ public class CreateOrderDto
     public PaymentSummary PaymentSummary { get; set; } = null!;
     [Required]
     public ShippingAddress ShippingAddress { get; set; } = null!;
+    public decimal Discount { get; set; }
 
 }

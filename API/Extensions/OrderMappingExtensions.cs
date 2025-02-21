@@ -1,5 +1,7 @@
 ﻿using API.DTOs;
 using Core.Entities.OrderAggregates;
+using System.ComponentModel;
+using System.Reflection;
 
 namespace API.Extensions;
 
@@ -18,8 +20,9 @@ public static class OrderMappingExtensions
             ShippingPrice = order.DeliveryMethod.Price,
             OrderItems = order.OrderItems.Select(x => x.ToDto()).ToList(),
             Subtotal = order.Subtotal,
-            Total = order.GetTotal(),  
-            Status = order.Status.ToString(),
+            Discount = order.Discount,
+            Total = order.GetTotal(),
+            Status = GetEnumDescription(order.Status),
             PaymentIntentId = order.PaymentIntentId
         };
     }
@@ -34,5 +37,13 @@ public static class OrderMappingExtensions
             Price = orderItem.Price,
             Quantity = orderItem.Quantity
         };
+    }
+
+    public static string GetEnumDescription(Enum value)
+    {
+        FieldInfo field = value.GetType().GetField(value.ToString());
+        DescriptionAttribute attribute = (DescriptionAttribute)Attribute.GetCustomAttribute(field, typeof(DescriptionAttribute));
+
+        return attribute == null ? value.ToString() : attribute.Description;
     }
 }

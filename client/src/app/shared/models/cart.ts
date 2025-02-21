@@ -5,7 +5,8 @@ export interface CartModel {
     items: CartItem[];
     deliveryMethodId?: number;
     paymentIntentId?: string;
-    clientSecret?: string
+    clientSecret?: string;
+    coupon?: Coupon;
 }
 
 export interface CartItem {
@@ -18,10 +19,19 @@ export interface CartItem {
     type: string;
 }
 
+export interface Coupon {
+    name: string;
+    amountOff?: number;
+    percentOff?: number;
+    promotionCode: string;
+    couponId: string;
+}
+
 export class Cart implements CartModel {
     id = nanoid();
     items: CartItem[] = [];
     deliveryMethodId?: number;
     paymentIntentId?: string;
-    clientSecret?: string
+    clientSecret?: string;
+    coupon?: Coupon;
 }
