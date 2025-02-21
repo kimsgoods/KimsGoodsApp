@@ -23,20 +23,26 @@ namespace Infrastructure.Services
             }
 
             var totalAmount = subtotal + deliveryFee;
-            await ValidateCartItemsPrice(cart);
+            await ValidateCartItemsPrice(cart);            
+            await CreateUpdatePaymentIntentAsync(cart, totalAmount);    
+            await cartService.SetCartAsync(cart);
 
+            return cart;
+        }
+
+        private static async Task CreateUpdatePaymentIntentAsync(ShoppingCart cart, long total)
+        {
             var paymentIntentService = new PaymentIntentService();
-            PaymentIntent? intent = null;
 
             if (string.IsNullOrEmpty(cart.PaymentIntentId))
             {
                 var options = new PaymentIntentCreateOptions
                 {
-                    Amount = (long)totalAmount,
+                    Amount = total,
                     Currency = "usd",
                     PaymentMethodTypes = ["card"]
                 };
-                intent = await paymentIntentService.CreateAsync(options);
+                var intent = await paymentIntentService.CreateAsync(options);
                 cart.PaymentIntentId = intent.Id;
                 cart.ClientSecret = intent.ClientSecret;
             }
@@ -44,14 +50,10 @@ namespace Infrastructure.Services
             {
                 var options = new PaymentIntentUpdateOptions
                 {
-                    Amount = (long)totalAmount
+                    Amount = total
                 };
-                intent = await paymentIntentService.UpdateAsync(cart.PaymentIntentId, options);
+                await paymentIntentService.UpdateAsync(cart.PaymentIntentId, options);
             }
-
-            await cartService.SetCartAsync(cart);
-
-            return cart;
         }
 
         private static async Task<long> ApplyDiscount(AppCoupon appCoupon, long subtotal)
@@ -62,7 +64,7 @@ namespace Infrastructure.Services
 
             if (coupon.AmountOff.HasValue)
             {
-                subtotal -= (long)coupon.AmountOff * 100;
+                subtotal -= (long)coupon.AmountOff;
             }
 
             if (coupon.PercentOff.HasValue)
@@ -100,10 +102,6 @@ namespace Infrastructure.Services
                 var deliveryMethod = await unitOfWork.Repository<DeliveryMethod>().GetByIdAsync((int)cart.DeliveryMethodId)
                     ?? throw new Exception("Problem with delivery method");
                 deliveryFee = (long)deliveryMethod.Price * 100; // multiply 100 to match Stripe long Amount
-            }
-            else
-            {
-                throw new Exception("Problem with delivery method");
             }
             return deliveryFee;
         }

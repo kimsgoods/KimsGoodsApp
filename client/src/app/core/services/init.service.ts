@@ -1,8 +1,8 @@
 import { inject, Injectable } from '@angular/core';
-import { CartService } from '../core/services/cart.service';
+import { CartService } from './cart.service';
 import { forkJoin, of, tap } from 'rxjs';
-import { AccountService } from '../core/services/account.service';
-import { SignalrService } from '../core/services/signalr.service';
+import { AccountService } from './account.service';
+import { SignalrService } from './signalr.service';
 
 @Injectable({
   providedIn: 'root'

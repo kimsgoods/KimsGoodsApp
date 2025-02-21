@@ -103,21 +103,20 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.loading = true;
     try {
       if (this.confirmationToken) {
-        const result = await this.stripeService.confirmPayment(this.confirmationToken);
-
-        if (result.paymentIntent?.status === "succeeded") {
-          const order = await this.createOrderModel();
-          const orderResult = await firstValueFrom(this.orderService.createOrder(order));
-          if (orderResult) {            
-            this.orderService.orderComplete = true;
-            this.cartService.deleteCart();
-            this.cartService.selectedDelivery.set(null);
-            this.router.navigateByUrl("/checkout/success");
-          } else {
-            throw new Error("Order creation failed");
-          }
-        } else if (result.error) {
-          throw new Error(result.error.message);
+        const order = await this.createOrderModel();
+        const orderResult = await firstValueFrom(this.orderService.createOrder(order));
+        if (!orderResult) {            
+         throw new Error("Order creation failed");
+        }
+        
+        const paymentResult = await this.stripeService.confirmPayment(this.confirmationToken);
+        if (paymentResult.paymentIntent?.status === "succeeded") {
+          this.orderService.orderComplete = true;
+          this.cartService.deleteCart();
+          this.cartService.selectedDelivery.set(null);
+          this.router.navigateByUrl("/checkout/success");
+        } else if (paymentResult.error) {
+          throw new Error(paymentResult.error.message);
         } else {
           throw new Error("Something went wrong");
         }
@@ -148,7 +147,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         expYear: card.exp_year
       },
       deliveryMethodId: cart.deliveryMethodId,
-      shippingAddress
+      shippingAddress,
+      discount: this.cartService.totals()?.discount
     }
     return order;
   }
