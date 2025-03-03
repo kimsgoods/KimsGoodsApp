@@ -41,9 +41,14 @@ public static class OrderMappingExtensions
 
     public static string GetEnumDescription(Enum value)
     {
-        FieldInfo field = value.GetType().GetField(value.ToString());
-        DescriptionAttribute attribute = (DescriptionAttribute)Attribute.GetCustomAttribute(field, typeof(DescriptionAttribute));
+        if (value == null)
+            throw new ArgumentNullException(nameof(value));
 
-        return attribute == null ? value.ToString() : attribute.Description;
+        FieldInfo? field = value.GetType().GetField(value.ToString());
+        if (field == null)
+            return value.ToString(); // Fallback to the enum name
+
+        DescriptionAttribute? attribute = field.GetCustomAttribute<DescriptionAttribute>();
+        return attribute?.Description ?? value.ToString();
     }
 }

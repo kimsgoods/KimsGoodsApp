@@ -2,6 +2,7 @@ using API.RequestHelpers;
 using Core.Entities;
 using Core.Interfaces;
 using Core.Specifications;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -29,6 +30,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Product>> CreateProduct(Product product)
     {
         unitOfWork.Repository<Product>().Add(product);
@@ -41,6 +43,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> UpdateProduct(int id, Product product)
     {
         if (product.Id != id || !unitOfWork.Repository<Product>().Exists(id))
@@ -56,6 +59,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult> DeleteProduct(int id)
     {
         var product = await unitOfWork.Repository<Product>().GetByIdAsync(id);
