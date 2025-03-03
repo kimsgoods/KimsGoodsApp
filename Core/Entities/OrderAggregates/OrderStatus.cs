@@ -14,6 +14,9 @@ public enum OrderStatus
     PaymentFailed,
 
     [Description("Payment Mismatch")]
-    PaymentMismatch
+    PaymentMismatch,
+
+    [Description("Refunded")]
+    Refunded
 }
 

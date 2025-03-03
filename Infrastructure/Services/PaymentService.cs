@@ -6,11 +6,20 @@ using Product = Core.Entities.Product;
 
 namespace Infrastructure.Services
 {
-    public class PaymentService(IConfiguration configuration, ICartService cartService, IUnitOfWork unitOfWork) : IPaymentService
+    public class PaymentService : IPaymentService
     {
+        private readonly ICartService cartService;
+        private readonly IUnitOfWork unitOfWork;
+
+        public PaymentService(IConfiguration configuration, ICartService cartService, IUnitOfWork unitOfWork)
+        {
+            this.cartService = cartService;
+            this.unitOfWork = unitOfWork;
+            StripeConfiguration.ApiKey = configuration["StripeSettings:SecretKey"];
+        }
+
         public async Task<ShoppingCart?> CreateOrUpdatePaymentIntent(string cartId)
         {
-            StripeConfiguration.ApiKey = configuration["StripeSettings:SecretKey"];
             var cart = await cartService.GetCartAsync(cartId);
             if (cart == null) return null;
 
@@ -23,11 +32,24 @@ namespace Infrastructure.Services
             }
 
             var totalAmount = subtotal + deliveryFee;
-            await ValidateCartItemsPrice(cart);            
-            await CreateUpdatePaymentIntentAsync(cart, totalAmount);    
+            await ValidateCartItemsPrice(cart);
+            await CreateUpdatePaymentIntentAsync(cart, totalAmount);
             await cartService.SetCartAsync(cart);
 
             return cart;
+        }
+
+        public async Task<string> RefundPayment(string paymentIntentId)
+        {
+            var refundOptions = new RefundCreateOptions
+            {
+                PaymentIntent = paymentIntentId
+            };
+
+            var refundService = new RefundService();
+            var result = await refundService.CreateAsync(refundOptions);
+
+            return result.Status;
         }
 
         private static async Task CreateUpdatePaymentIntentAsync(ShoppingCart cart, long total)
@@ -105,5 +127,7 @@ namespace Infrastructure.Services
             }
             return deliveryFee;
         }
+
+
     }
 }
