@@ -9,6 +9,7 @@ namespace API.Controllers;
 
 public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
 {
+    [Cache(600)]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] ProductSpecParams specParams)
     {
@@ -19,6 +20,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
         return pagedResult;
     }
 
+    [Cache(600)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<Product>> GetProductById(int id)
     {
@@ -29,6 +31,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
         return product;
     }
 
+    [InvalidateCache("api/products|")]
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<Product>> CreateProduct(Product product)
@@ -42,6 +45,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
         return BadRequest("Problem creating product");
     }
 
+    [InvalidateCache("api/products|")]
     [HttpPut("{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> UpdateProduct(int id, Product product)
@@ -58,6 +62,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
         return BadRequest("Problem updating product");
     }
 
+    [InvalidateCache("api/products|")]
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> DeleteProduct(int id)
@@ -75,6 +80,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
         return BadRequest("Problem deleting product");
     }
 
+    [Cache(10000)]
     [HttpGet("brands")]
     public async Task<ActionResult<IReadOnlyList<string>>> GetBrands()
     {
@@ -82,6 +88,7 @@ public class ProductsController(IUnitOfWork unitOfWork) : BaseApiController
         return Ok(await unitOfWork.Repository<Product>().ListAsync(spec));
     }
 
+    [Cache(10000)]
     [HttpGet("types")]
     public async Task<ActionResult<IReadOnlyList<string>>> GetTypes()
     {
