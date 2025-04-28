@@ -10,5 +10,5 @@ import { ShopComponent } from "./features/shop/shop.component";
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  title = "SkiNet";
+  title = "Kim'sGoods";
 }

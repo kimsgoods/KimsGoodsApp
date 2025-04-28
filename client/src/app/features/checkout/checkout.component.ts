@@ -101,32 +101,49 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   async confirmPayment(stepper: MatStepper) {
     this.loading = true;
+  
     try {
-      if (this.confirmationToken) {
-        const order = await this.createOrderModel();
-        const orderResult = await firstValueFrom(this.orderService.createOrder(order));
-        if (!orderResult) {            
-         throw new Error("Order creation failed");
-        }
-        
-        const paymentResult = await this.stripeService.confirmPayment(this.confirmationToken);
-        if (paymentResult.paymentIntent?.status === "succeeded") {
-          this.orderService.orderComplete = true;
-          this.cartService.deleteCart();
-          this.cartService.selectedDelivery.set(null);
-          this.router.navigateByUrl("/checkout/success");
-        } else if (paymentResult.error) {
-          throw new Error(paymentResult.error.message);
-        } else {
-          throw new Error("Something went wrong");
-        }
+      if (!this.confirmationToken) {
+        throw new Error('No confirmation token available');
+      }
+  
+      // Create the order first to check stock
+      const order = await this.createOrderModel();
+      const orderResult = await firstValueFrom(this.orderService.createOrder(order));
+  
+      if (!orderResult) {
+        throw new Error('Order creation failed or out of stock');
+      }
+  
+      // Proceed with payment after order creation
+      const paymentResult = await this.stripeService.confirmPayment(this.confirmationToken);
+  
+      if (paymentResult.paymentIntent?.status === 'succeeded') {
+        await this.handleOrderSuccess();
+      } else if (paymentResult.error) {
+        throw new Error(paymentResult.error.message);
+      } else {
+        throw new Error('Payment confirmation failed');
       }
     } catch (error: any) {
-      this.snackbar.error(error.message || "Something went wrong");
-      stepper.previous();
+      console.log(error.error);
+      this.handleError(error.error || error.message || 'Something went wrong', stepper);
     } finally {
       this.loading = false;
     }
+  }
+  
+  private async handleOrderSuccess() {
+    // Complete the order after successful payment
+    this.orderService.orderComplete = true;
+    this.cartService.deleteCart();
+    this.cartService.selectedDelivery.set(null);
+    this.router.navigateByUrl('/checkout/success');
+  }
+  
+  private handleError(message: string, stepper: MatStepper) {
+    this.snackbar.error(message);
+    stepper.previous();
   }
 
   private async createOrderModel(): Promise<OrderToCreate> {

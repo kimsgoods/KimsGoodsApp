@@ -34,7 +34,7 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
     }
 
 
-    [HttpPost("webhook")]
+     [HttpPost("webhook")]
     public async Task<IActionResult> StripeWebhook()
     {
         var json = await new StreamReader(Request.Body).ReadToEndAsync();
@@ -48,27 +48,74 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
                 return BadRequest("Invalid event data");
             }
 
-            if (intent.Status == "succeeded")
-            {
-                await HandlePaymentIntentSucceeded(intent);
-            }
-            else
-            {
-                await HandlePaymentIntentFailed(intent);
-            }
+            if (intent.Status == "succeeded") await HandlePaymentIntentSucceeded(intent);
+            else await HandlePaymentIntentFailed(intent);
 
             return Ok();
         }
         catch (StripeException ex)
         {
-            logger.LogError(ex, "Stripe Webhook error");
+            logger.LogError(ex, "Stripe webhook error");
             return StatusCode(StatusCodes.Status500InternalServerError, "Webhook error");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error");
-            return StatusCode(StatusCodes.Status500InternalServerError, "Unexpected error");
+            logger.LogError(ex, "An unexpected error occurred");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred");
         }
+    }
+
+    private async Task HandlePaymentIntentSucceeded(PaymentIntent intent)
+    {
+        var spec = new OrderSpecification(intent.Id, true);
+
+        var order = await unitOfWork.Repository<Order>().GetEntityWithSpec(spec)
+            ?? throw new Exception("Order not found");
+
+        var orderTotalInCents = (long)Math.Round(order.GetTotal() * 100,
+            MidpointRounding.AwayFromZero);
+
+        if (orderTotalInCents != intent.Amount)
+        {
+            order.Status = OrderStatus.PaymentMismatch;
+        }
+        else
+        {
+            order.Status = OrderStatus.PaymentReceived;
+        }
+
+        await unitOfWork.Complete();
+
+        var connectionId = NotificationHub.GetConnectionIdByEmail(order.BuyerEmail);
+
+        if (!string.IsNullOrEmpty(connectionId))
+        {
+            await hubContext.Clients.Client(connectionId)
+                .SendAsync("OrderCompleteNotification", order.ToDto());
+        }
+    }
+
+    private async Task HandlePaymentIntentFailed(PaymentIntent intent)
+    {
+        // create spec for order with order items based on intent id
+        var spec = new OrderSpecification(intent.Id, true);
+
+        var order = await unitOfWork.Repository<Order>().GetEntityWithSpec(spec)
+            ?? throw new Exception("Order not found");
+
+        // update quantities for the products in stock based on the failed order
+        foreach (var item in order.OrderItems)
+        {
+            var productItem = await unitOfWork.Repository<Core.Entities.Product>()
+                .GetByIdAsync(item.ItemOrdered.ProductId)
+                    ?? throw new Exception("Problem updating order stock");
+
+            productItem.QuantityInStock += item.Quantity;
+        }
+
+        order.Status = OrderStatus.PaymentFailed;
+
+        await unitOfWork.Complete();
     }
 
     private Event ConstructStripeEvent(string json)
@@ -84,50 +131,4 @@ public class PaymentsController(IPaymentService paymentService, IUnitOfWork unit
         }
     }
 
-    private async Task HandlePaymentIntentFailed(PaymentIntent intent)
-    {
-        var spec = new OrderSpecification(intent.Id, true);
-        var order = await unitOfWork.Repository<Core.Entities.OrderAggregates.Order>().GetEntityWithSpec(spec)
-                ?? throw new Exception("Order not found");
-
-        foreach (var item in order.OrderItems)
-        {
-            var productItem = await unitOfWork.Repository<Core.Entities.Product>().GetByIdAsync(item.ItemOrdered.ProductId)
-            ?? throw new Exception("Product not found");
-
-            productItem.QuantityInStock += item.Quantity;
-        }
-        order.Status = OrderStatus.PaymentFailed;
-
-        await unitOfWork.Complete();
-    }
-    private async Task HandlePaymentIntentSucceeded(PaymentIntent intent)
-    {
-        if (intent.Status == "succeeded")
-        {
-            var spec = new OrderSpecification(intent.Id, true);
-
-            var order = await unitOfWork.Repository<Core.Entities.OrderAggregates.Order>().GetEntityWithSpec(spec)
-            ?? throw new Exception("Order not found");
-
-            var orderTotalInCents = (long)Math.Round(order.GetTotal() * 100, MidpointRounding.AwayFromZero);
-            if (orderTotalInCents != intent.Amount)
-            {
-                order.Status = OrderStatus.PaymentMismatch;
-            }
-            else
-            {
-                order.Status = OrderStatus.PaymentReceived;
-            }
-
-            await unitOfWork.Complete();
-
-            var connectionId = NotificationHub.GetConnectionIdByEmail(order.BuyerEmail);
-
-            if (!string.IsNullOrEmpty(connectionId))
-            {
-                await hubContext.Clients.Client(connectionId).SendAsync("OrderCompleteNotification", order.ToDto());
-            }
-        }
-    }
 }
